@@ -10,6 +10,7 @@
 # Revised: 2020-01-27 - add timestamp to outbound Payserv files before archiving
 #                     - add --no-transfer option and some other config params
 # Revised: 2020-02-25 - add "ers" as a new file type
+# Revised: 2025-11-26 - restructure config to support multiple environments
 #
 # This script handles the transfer of files to and from OSC.
 #
@@ -100,19 +101,21 @@ dest_user=
 xfer_mode=
 config_file=
 date_pattern=
+env_type=default
+force_toc_from_local=0
+keep_tmp_files=0
+no_transfer=0
 skip_get=0
 skip_put=0
-no_transfer=0
-keep_tmp_files=0
-force_toc_from_local=0
 verbose=0
 
 
 usage() {
-  echo "Usage: $prog [-f config-file] [-d date] [--skip-get] [--skip-put] [--no-transfer] [--keep-tmp-files] [--force-toc-from-local] [--verbose] transfer_mode" >&2
-  echo "  where <transfer_mode> is of the form: <direction>:<filetype>" >&2
-  echo '  where <direction> is either "get" or "put"' >&2
-  echo "    and <filetype> is one of: sfs, shared, idl, paysr, ers" >&2
+  echo "Usage: $prog [-f config-file] [-d date] [-e environment] [--force-toc-from-local] [--keep-tmp-files] [--no-transfer] [--skip-get] [--skip-put] [--verbose] transfer_mode" >&2
+  echo "  where <environment> is generally 'prod' or 'test'" >&2
+  echo "    and <transfer_mode> is of the form: <direction>:<filetype>" >&2
+  echo '      where <direction> is either "get" or "put"' >&2
+  echo "        and <filetype> is one of: sfs, shared, idl, paysr, ers" >&2
 }
 
 
@@ -127,11 +130,12 @@ while [ $# -gt 0 ]; do
     --help|-h) usage; exit 0 ;;
     --config*|-f) shift; config_file="$1" ;;
     --date*|-d) shift; date_pattern="$1" ;;
+    --env*|-e) shift; env_type="$1" ;;
+    --force*) force_toc_from_local=1 ;;
+    --keep*) keep_tmp_files=1 ;;
+    --no*|-n) no_transfer=1 ;;
     --skip-get) skip_get=1 ;;
     --skip-put) skip_put=1 ;;
-    --no*|-n) no_transfer=1 ;;
-    --keep*) keep_tmp_files=1 ;;
-    --force*) force_toc_from_local=1 ;;
     --verbose|-v) verbose=1 ;;
     -*) echo "$prog: $1: Unknown option" >&2; usage; exit 1 ;;
     *) xfer_mode="$1" ;;
@@ -150,7 +154,7 @@ esac
 xfer_mode=`echo $xfer_mode | tr : _`
 
 # Calculate config_file from the xfer_mode
-[ "$config_file" ] || config_file="/etc/osc_xfer_${xfer_mode}.cfg"
+[ "$config_file" ] || config_file="/etc/osc_xfer/${env_type}/${xfer_mode}.cfg"
 
 if [ ! -r "$config_file" ]; then
   echo "$prog: $config_file: Configuration file not found" >&2
@@ -170,7 +174,7 @@ done
 
 # If local_dir was specified as a relative path, make it absolute.
 if [ "${local_dir:0:1}" != "/" ]; then
-  local_dir="$data_dir/$local_dir/$date_year"
+  local_dir="$data_dir/$env_type/$local_dir/$date_year"
 fi
 
 if [ ! -r "$local_dir" ]; then

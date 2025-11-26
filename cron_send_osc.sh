@@ -7,11 +7,13 @@
 # Organization: New York State Senate
 # Date: 2019-01-24
 # Revised: 2020-02-25 - allow file types to be specified on the command line
+# Revised: 2025-11-26 - add -e/--env option to set the environment
 #
 
 prog=`basename $0`
 script_dir=`dirname $0`
 default_ftypes="sfs paysr"
+etype=prod
 ftype_list=
 
 log_msg() {
@@ -20,13 +22,15 @@ log_msg() {
 }
 
 usage() {
-  echo "Usage: $prog [filetype [filetype ...] ]" >&2
+  echo "Usage: $prog [-e environment] [filetype [filetype ...] ]" >&2
+  echo "  where <environment> is 'dev', 'test', or 'prod' (default: $etype)" >&2
   echo "Default file types if none provided: $default_ftypes" >&2
 }
 
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --env*|-e) shift; etype="$1" ;;
     --help|-h) usage; exit 0 ;;
     -*) echo "$prog: $1: Invalid option" 2>&1; usage; exit 1 ;;
     *) ftype_list="$ftype_list $1" ;;
@@ -36,11 +40,11 @@ done
 
 [ "$ftype_list" ] || ftype_list="$default_ftypes"
 
-log_msg "Sending files to OSC, types=[$ftype_list]"
+log_msg "Sending files to OSC, env=[$etype], types=[$ftype_list]"
 
 for ftype in $ftype_list; do
   log_msg "Starting transfer of [$ftype] files to OSC"
-  $script_dir/xfer_files.sh put:$ftype
+  $script_dir/xfer_files.sh -e "$etype" put:$ftype
   log_msg "Finished transfer of [$ftype] files to OSC"
 done
 
